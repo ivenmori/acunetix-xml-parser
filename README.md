@@ -5,7 +5,7 @@ This script requires:
 * openpyxl (https://pypi.python.org/pypi/openpyxl)
 * Python 3.x
 
-Install
+### Install
 You can install via pip:
 ```
 pip install openpyxl
