@@ -7,9 +7,9 @@ This script requires:
 
 Install
 You can install libnmap via pip:
-
+```
 pip install openpyxl
-
+```
 ### Usage
 ```
 python acunetix-parser.py <Directory with XML Files> <XLSX output file>
