@@ -10,4 +10,4 @@ This script requires:
 python acunetix-parser.py <Directory with XML Files> <XLSX output file>
 ```
 #### Authors
-Ramiro Molina, modified by Nicolás Hovassapian
+Ramiro Molina,Nicolás Hovassapian,  modified by Iván Morales 
