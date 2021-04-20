@@ -6,7 +6,7 @@ This script requires:
 * Python 3.x
 
 Install
-You can install libnmap via pip:
+You can install via pip:
 ```
 pip install openpyxl
 ```
