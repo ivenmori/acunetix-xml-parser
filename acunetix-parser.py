@@ -1,6 +1,7 @@
-# Acunetix XML results parser by Ramiro Molina modified by Nicolas Hovassapian
-# This script requires openpyxl (https://pypi.python.org/pypi/openpyxl)
-# and python 3.x
+# Acunetix XML results parser
+# initial version from: https://github.com/nh0va/acunetix-xml-parser
+# Updateby: Iván Morales to add information required to validate the result from Acunetix.
+# Update to parse multiple scan into mutitargets xml, get host details
 
 import os
 import sys
@@ -39,7 +40,7 @@ def doWork(xml_list,ouputfile):
     
     wb = workbook.Workbook()
     ws = wb.create_sheet(title='Vulnerabilities')
-    columns = ['UniqueID','Timestamp','StartURL','WebServer','Issue Type','Name','Risk Rating','Description','DetailedInformation','Details','Affects','Impact','Recommendation','References','Request','Response','Is False Positive', 'CVSS Vector', 'CVSS Score','CVSS3 Vector', 'CVSS3 Score']
+    columns = ['UniqueID','Timestamp','StartURL','WebServer','Issue Type','Name','Risk Rating','Description','DetailedInformation','Details','Affects','Impact','Recommendation','References','Request','Response','Is False Positive', 'CVSS Vector', 'CVSS Score','CVSS3 Vector', 'CVSS3 Score','CWEList','Acunetix File Name']
     for i in range(len(columns)):
         ws.cell(row=1, column=i+1, value=columns[i])
     wb.save(ouputfile)  
@@ -48,66 +49,76 @@ def doWork(xml_list,ouputfile):
     for xml_file in xml_list:
         if file_len(xml_file) != 27: ##For handling empty files (27 lines long)
             print ('Parsing result file: ' + xml_file)
+
             tree = ET.parse(xml_file)
             root = tree.getroot()    
-            
-            startURL = root.find('./Scan/StartURL')
-            startTime = root.find('./Scan/StartTime')
-            webServer =  root.find('./Scan/WebServer')
-            
             itemcount = 0
-            for reportItem in root.iter('ReportItem'):
-                ws.cell(row=j, column=1, value=reportItem.get('id'))
-                ws.cell(row=j, column=2, value=startTime.text)
-                ws.cell(row=j, column=3, value=startURL.text)
-                ws.cell(row=j, column=4, value=webServer.text)
-                ws.cell(row=j, column=5, value=reportItem.find('Type').text)
-                ws.cell(row=j, column=6, value=reportItem.find('Name').text)
-                ws.cell(row=j, column=7, value=reportItem.find('Severity').text)
-                ws.cell(row=j, column=8, value=strip_tags(reportItem.find('Description').text))
-                detailedInformation = reportItem.find('DetailedInformation')
-                if detailedInformation is not None and detailedInformation.text is not None:
-                    ws.cell(row=j, column=9, value=strip_tags(detailedInformation.text))
-                details = reportItem.find('Details')
-                if details is not None and details.text is not None:
-                    ws.cell(row=j, column=10, value=strip_tags(details.text))
-                ws.cell(row=j, column=11, value=reportItem.find('Affects').text)
-                impact = reportItem.find('Impact').text
-                if impact is not None:
-                    ws.cell(row=j, column=12, value=impact)
-                ws.cell(row=j, column=13, value=strip_tags(reportItem.find('Recommendation').text))
+            for scan in root.iter('Scan'):
+                startURL = scan.find('Crawler').get('StartUrl')
+                startTime = scan.find('StartTime')
+                webServer =  scan.find('WebServer')
                 
-                #Include references items
-                reference = ''
-                for referenceItem in reportItem.iter('Reference'):
-                    reference = reference + referenceItem.find('Database').text + ': ' + referenceItem.find('URL').text + '\n'
-                ws.cell(row=j, column=14, value=reference)
-                
-                request = reportItem.find('TechnicalDetails/Request').text
-                if request is not None:
-                    ws.cell(row=j, column=15, value=request)
-                response = reportItem.find('TechnicalDetails/Response')
-                if response is not None and response.text is not None:
-                    ws.cell(row=j, column=16, value=response.text)
+            
+                for reportItem in scan.iter('ReportItem'):
+                    ws.cell(row=j, column=1, value=reportItem.get('id'))
+                    ws.cell(row=j, column=2, value=startTime.text)
+                    ws.cell(row=j, column=3, value=startURL)
+                    ws.cell(row=j, column=4, value=webServer.text)
+                    ws.cell(row=j, column=5, value=reportItem.find('Type').text)
+                    ws.cell(row=j, column=6, value=reportItem.find('Name').text)
+                    ws.cell(row=j, column=7, value=reportItem.find('Severity').text)
+                    ws.cell(row=j, column=8, value=strip_tags(reportItem.find('Description').text))
+                    detailedInformation = reportItem.find('DetailedInformation')
+                    if detailedInformation is not None and detailedInformation.text is not None:
+                        ws.cell(row=j, column=9, value=strip_tags(detailedInformation.text))
+                    details = reportItem.find('Details')
+                    if details is not None and details.text is not None:
+                        ws.cell(row=j, column=10, value=strip_tags(details.text))
+                    ws.cell(row=j, column=11, value=reportItem.find('Affects').text)
+                    impact = reportItem.find('Impact').text
+                    if impact is not None:
+                        ws.cell(row=j, column=12, value=impact)
+                    ws.cell(row=j, column=13, value=strip_tags(reportItem.find('Recommendation').text))
                     
-                CVSS_vector = reportItem.find('CVSS/Descriptor')
-                if CVSS_vector is not None and CVSS_vector.text is not None:
-                    ws.cell(row=j, column=18, value=CVSS_vector.text)
+                    #Include references items
+                    reference = ''
+                    for referenceItem in reportItem.iter('Reference'):
+                        reference = reference + referenceItem.find('Database').text + ': ' + referenceItem.find('URL').text + '\n'
+                    ws.cell(row=j, column=14, value=reference)
                     
-                CVSS_score = reportItem.find('CVSS/Score')
-                if CVSS_score is not None and CVSS_score.text is not None:
-                    ws.cell(row=j, column=19, value=CVSS_score.text)
-                
-                CVSS3_vector = reportItem.find('CVSS3/Descriptor')
-                if CVSS3_vector is not None and CVSS3_vector.text is not None:
-                    ws.cell(row=j, column=20, value=CVSS3_vector.text)
+                    request = reportItem.find('TechnicalDetails/Request').text
+                    if request is not None:
+                        ws.cell(row=j, column=15, value=request)
+                    response = reportItem.find('TechnicalDetails/Response')
+                    if response is not None and response.text is not None:
+                        ws.cell(row=j, column=16, value=response.text)
+                        
+                    CVSS_vector = reportItem.find('CVSS/Descriptor')
+                    if CVSS_vector is not None and CVSS_vector.text is not None:
+                        ws.cell(row=j, column=18, value=CVSS_vector.text)
+                        
+                    CVSS_score = reportItem.find('CVSS/Score')
+                    if CVSS_score is not None and CVSS_score.text is not None:
+                        ws.cell(row=j, column=19, value=CVSS_score.text)
                     
-                CVSS3_score = reportItem.find('CVSS3/Score')
-                if CVSS3_score is not None and CVSS3_score.text is not None:
-                    ws.cell(row=j, column=21, value=CVSS3_score.text)
+                    CVSS3_vector = reportItem.find('CVSS3/Descriptor')
+                    if CVSS3_vector is not None and CVSS3_vector.text is not None:
+                        ws.cell(row=j, column=20, value=CVSS3_vector.text)
+                        
+                    CVSS3_score = reportItem.find('CVSS3/Score')
+                    if CVSS3_score is not None and CVSS3_score.text is not None:
+                        ws.cell(row=j, column=21, value=CVSS3_score.text)
+                    #Include CWE ID List
+                    cwelist = ''
+                    for cweItem in reportItem.iter('CWE'):
+                        if cweItem is not None and cweItem.text is not None:    
+                            cwelist = cwelist + ', ' + cweItem.text + '\n'
+                    ws.cell(row=j, column=22, value=cwelist)
+                    #Include Namefile from xml
+                    ws.cell(row=j, column=23, value=xml_file)   
                     
-                j = j + 1
-                itemcount = itemcount + 1
+                    j = j + 1
+                    itemcount = itemcount + 1
             print ('Number of elements found in file: ' + str(itemcount))
             files_parsed+=1
         else:
@@ -117,7 +128,7 @@ def doWork(xml_list,ouputfile):
     print ('\n\nDone! Total of files: {0}, total of parsed files: {1}, total of skipped files: {2}'.format(len(xml_list),files_parsed,files_skipped))
 
 def banner():
-    print ('Acunetix XML report file parser. Support for Acunetix v11. Author: Ramiro Molina - Modified by Nicolas Hovassapian\n')
+    print ('Acunetix XML report file parser. Support for Acunetix, Author: Ivan Morales\n')
 
 def usage(scriptName):
     print ('Proper usage is: python ' + scriptName + ' <Directory with XML Files> <XLSX output file>')
